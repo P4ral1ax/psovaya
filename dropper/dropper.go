@@ -67,7 +67,7 @@ func ExecMemfd(fd int) {
 
 func main() {
 	// Define Usage string
-	usage := "Usage : ./dropper {url}"
+	usage := "Usage : ./dropper {url}\n"
 	var url string
 	var elfContent []byte
 	var fd int
