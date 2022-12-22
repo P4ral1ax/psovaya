@@ -19,10 +19,15 @@ func MemfdCreate(name string) int {
 	return fd
 }
 
+// Downloads ELF from URL
+func retrieveFile() {
+
+}
+
 // Write Content
 func WriteToMemfd(fd int, content string) {
 	fmt.Printf("Writing to MemFd Pointer")
-	filepath := ""
+	filepath := fmt.Sprintf("/proc/self/fd/%v", fd)
 	f, err := os.OpenFile(filepath, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Printf("Error Opening File: %v", err)
@@ -34,18 +39,19 @@ func WriteToMemfd(fd int, content string) {
 	}
 }
 
-func ExecMemfd() {
+func ExecMemfd(fd int) {
 	pid, _, _ := syscall.Syscall(syscall.SYS_FORK, 0, 0, 0)
 	if pid == 0 {
 		print("Executing Memfd Pointer")
-		filepath := ""
-		unix.Exec(filepath, nil, os.Environ())
+		filepath := fmt.Sprintf("/proc/self/fd/%v", fd)
+		args := [1]string{string(fd)}
+		unix.Exec(filepath, args[:], os.Environ())
 	}
 }
 
 func main() {
-	content := "funny mode"
 	fd := MemfdCreate("psovaya")
-	WriteToMemfd(fd, content)
+	fmt.Printf("FD is %v", fd)
+	//WriteToMemfd(fd, content)
 
 }
