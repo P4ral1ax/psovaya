@@ -26,7 +26,7 @@ func MemfdCreate(name string) int {
 }
 
 // Downloads ELF from URL
-func RetrieveFile(url string) (response []byte) {
+func RetrieveFile(url string) []byte {
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Printf("Error Retrieving File : %v\n", err)
