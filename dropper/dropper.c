@@ -89,14 +89,14 @@ void exec_fd(int fd, char* pname, char* evp[]){
     char* p_argv[] = {pname, NULL};
     fexecve(fd, p_argv, evp);
 
-    // This should not be hit :O
+    // Code shouldn't reach this :3
     return;
 }
 
 
 int main(int argc, char *argv[], char * envp[]){
     /* Define Vars */
-    char* fd_name = "psovaya";
+    char* fd_name = "";
     int fd_num;
     char url[1024];
     char procname[128];

