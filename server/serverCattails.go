@@ -10,7 +10,6 @@ Look at the github repo for Cattails for more information :3
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -44,7 +43,7 @@ type PwnBoard struct {
 }
 
 func banner() {
-	b, err := ioutil.ReadFile("ascii.txt")
+	b, err := os.ReadFile("ascii.txt")
 	if err != nil {
 		panic(err)
 	}
@@ -82,33 +81,50 @@ func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, lis
 }
 
 func cli() {
-	var help string = "bruh"
+	var help string = "COMMANDS: \n    help: Display Help\n    exec: Execute Command\n    target: Configure target\n    info: Obtain info from payload or server"
 	for {
 		// reader type
 		reader := bufio.NewReader(os.Stdin)
 
-		fmt.Print("Psovaya> ")
+		fmt.Printf("\x1b[32mPsovaya \x1b[36m[%v]\x1b[32m > \x1b[0m", targetIP)
 		tmpCmd, _ = reader.ReadString('\n')
 		tmpCmd = strings.Trim(tmpCmd, "\n") // Trim newlines
-		if tmpCmd == "TARGET" {
-			tmpCmd = ""
-			fmt.Print("Enter IP to target> ")
-			targetIP, _ = reader.ReadString('\n')
-			targetIP = strings.Trim(targetIP, "\n")
 
-			// Get TARGET command
-			fmt.Print("TARGET COMMAND> ")
-			targetcommand, _ = reader.ReadString('\n')
-			targetcommand = strings.Trim(targetcommand, "\n")
-		}
-
-		if tmpCmd == "help" {
+		splitCmd := strings.Split(tmpCmd, " ")
+		cmdArgc := len(splitCmd)
+		switch splitCmd[0] {
+		case "help":
 			fmt.Println(help)
+		case "target":
+			if splitCmd[1] == "set" && cmdArgc >= 3 {
+				fmt.Printf("Target: %v\n", splitCmd[2])
+				targetIP = splitCmd[2]
+			} else {
+				fmt.Printf("Incorrect Syntax\n")
+			}
+		case "exec":
+			if targetIP != "" {
+				cmd := strings.Split(tmpCmd, "exec")
+				fmt.Printf("Executing : %v\n", cmd[1])
+			} else {
+				fmt.Println("No Target")
+			}
+		case "info":
+			fmt.Println("info")
+		case "exit":
+			fmt.Printf("Are you sure you want to exit?\n  [y/N]: ")
+			var resp string
+			fmt.Scanln(&resp)
+			if resp == "Y" || resp == "y" {
+				os.Exit(0)
+			}
+			break
+		case "clear":
+		case "":
+		default:
+			fmt.Printf("Unknown Command\n")
 		}
-		fmt.Println("[+] Staged CMD:", tmpCmd)
-		if targetcommand != "" {
-			fmt.Println("[+] Target CMD:", targetcommand, "on box", targetIP)
-		}
+		tmpCmd = ""
 	}
 }
 
