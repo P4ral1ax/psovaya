@@ -8,4 +8,4 @@ require (
 	golang.org/x/sys v0.3.0
 )
 
-require golang.org/x/net v0.0.0-20191021144547-ec77196f6094 // indirect
+require golang.org/x/net v0.0.0-20191021144547-ec77196f6094
