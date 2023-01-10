@@ -103,7 +103,7 @@ func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, lis
 				// Send packet
 				packet = rawsocket.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, data)
 				rawsocket.SendPacket(fd, iface, rawsocket.CreateAddrStruct(iface), packet)
-				fmt.Println("[+] Sent Command :", bot.Hostname, "(", bot.IP, ")")
+				// fmt.Println("[+] Sent Command :", bot.Hostname, "(", bot.IP, ")")
 				unix.Close(fd)
 				// updatepwnboard
 			}
@@ -245,7 +245,7 @@ func processPacket(packet gopacket.Packet, listen chan Host) {
 	}
 
 	// Update Pwnbord
-	fmt.Println("[+] Recieved From:", newHost.Hostname, "(", newHost.IP, ")")
+	// fmt.Println("[+] Hello :", newHost.Hostname, "(", newHost.IP, ")")
 	// Write host to channel
 	listen <- newHost
 }
