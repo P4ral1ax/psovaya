@@ -66,7 +66,13 @@ func htons(i uint16) uint16 {
 	return (i<<8)&0xff00 | i>>8
 }
 
-func BothReadPacket(fd int, vm *bpf.VM, forServer bool) gopacket.Packet {
+// ServerReadPacket reads packets from a socket file descriptor (fd)
+//
+// fd  	--> file descriptor that relates to the socket created in main
+// vm 	--> BPF VM that contains the BPF Program
+//
+// Returns 	--> None
+func ReadPacket(fd int, vm *bpf.VM, forServer bool) gopacket.Packet {
 	// Buffer for packet data that is read in
 	buf := make([]byte, 1500)
 
@@ -101,90 +107,6 @@ func BothReadPacket(fd int, vm *bpf.VM, forServer bool) gopacket.Packet {
 			if strings.Contains(string(packet.ApplicationLayer().Payload()), BotIdentifier) {
 				return packet
 			}
-		}
-		return nil
-	}
-	return nil
-}
-
-// ServerReadPacket reads packets from a socket file descriptor (fd)
-//
-// fd  	--> file descriptor that relates to the socket created in main
-// vm 	--> BPF VM that contains the BPF Program
-//
-// Returns 	--> None
-func ServerReadPacket(fd int, vm *bpf.VM) gopacket.Packet {
-
-	// Buffer for packet data that is read in
-	buf := make([]byte, 1500)
-
-	// Read in the packets
-	// num 		--> number of bytes
-	// sockaddr --> the sockaddr struct that the packet was read from
-	// err 		--> was there an error?
-	_, _, err := unix.Recvfrom(fd, buf, 0)
-
-	checkEr(err)
-
-	// Filter packet?
-	// numBytes	--> Number of bytes
-	// err	--> Error you say?
-	numBytes, err := vm.Run(buf)
-	checkEr(err)
-	if numBytes == 0 {
-		// Change "continue" to return for routine logic
-		return nil // 0 means that the packet should be dropped
-		// Here we are just "ignoring" the packet and moving on to the next one
-	}
-
-	// Parse packet... hopefully
-	packet := gopacket.NewPacket(buf, layers.LayerTypeEthernet, gopacket.Default)
-	if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
-		// Make sure this is my packet
-		if strings.Contains(string(packet.ApplicationLayer().Payload()), "HELLO:") {
-			return packet
-		}
-		return nil
-	}
-	return nil
-}
-
-// BotReadPacket reads packets from a socket file descriptor (fd)
-//
-// fd  	--> file descriptor that relates to the socket created in main
-// vm 	--> BPF VM that contains the BPF Program
-//
-// Returns 	--> None
-func BotReadPacket(fd int, vm *bpf.VM) gopacket.Packet {
-
-	// Buffer for packet data that is read in
-	buf := make([]byte, 1500)
-
-	// Read in the packets
-	// num 		--> number of bytes
-	// sockaddr --> the sockaddr struct that the packet was read from
-	// err 		--> was there an error?
-	_, _, err := unix.Recvfrom(fd, buf, 0)
-
-	checkEr(err)
-
-	// Filter packet?
-	// numBytes	--> Number of bytes
-	// err	--> Error you say?
-	numBytes, err := vm.Run(buf)
-	checkEr(err)
-	if numBytes == 0 {
-		// Change "continue" to return for routine logic
-		return nil // 0 means that the packet should be dropped
-		// Here we are just "ignoring" the packet and moving on to the next one
-	}
-
-	// Parse packet... hopefully
-	packet := gopacket.NewPacket(buf, layers.LayerTypeEthernet, gopacket.Default)
-	if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
-		// Make sure this is my packet
-		if strings.Contains(string(packet.ApplicationLayer().Payload()), "COMMAND:") {
-			return packet
 		}
 		return nil
 	}

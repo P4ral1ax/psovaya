@@ -123,7 +123,7 @@ func main() {
 	go generateHeartbeat(iface, src, net.IPv4(192, 168, 1, 202), dstMAC)
 
 	for {
-		packet := rawsocket.BothReadPacket(readfd, vm, false)
+		packet := rawsocket.ReadPacket(readfd, vm, false)
 		if packet != nil {
 			go implantProcessPacket(packet, src)
 		}
