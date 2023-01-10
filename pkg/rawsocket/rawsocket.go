@@ -26,6 +26,7 @@ import (
 // How Packets are Marked
 var ServerIdentifier string = "c2VydmVy"
 var BotIdentifier string = "Ym90Cg"
+var XorKey string = "borzoi"
 
 // FilterRaw is a BPF struct containing raw instructions.
 // Generate with tcpdump udp and port 56969 -dd
@@ -347,6 +348,17 @@ func GetRouterMAC() (net.HardwareAddr, error) {
 	}
 
 	return nil, errors.New("no gateway found")
+}
+
+// XORCipher will encrypt and decrypt strings
+func XORCipher(data string) (output string) {
+	strLen := len(data)
+	keyLen := len(XorKey)
+	for i := 0; i < strLen; i++ {
+		output = output + string(data[i]^XorKey[i%keyLen])
+	}
+
+	return output
 }
 
 // CreateHello creates a HELLO string for callbacks
