@@ -214,8 +214,7 @@ func cli() {
 
 func processPacket(packet gopacket.Packet, listen chan Host) {
 	// Get data from packet & Remove Identifier
-	data := string(packet.ApplicationLayer().Payload())
-	data = rawsocket.RemoveIdentifier(data)
+	data := rawsocket.RemoveIdentifier(string(packet.ApplicationLayer().Payload()))
 	payload := strings.Split(data, " ")
 
 	// fmt.Println("PACKET SRC IP", packet.NetworkLayer().NetworkFlow().Src().String())
