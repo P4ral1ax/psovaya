@@ -408,7 +408,7 @@ func CreateCommand(cmd string) (command string) {
 	return command
 }
 
-func CreateDeploy(path string) (command string) {
+func CreateDeploy(cmd string) (command string) {
 	command = "DEPLOY: " + path
 	return command
 }
