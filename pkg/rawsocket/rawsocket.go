@@ -470,6 +470,6 @@ func RemoveIdentifier(data string, forServer bool) (command string) {
 		newData := strings.Replace(data, ServerIdentifier, "", 1)
 		return newData
 	}
-	newData := strings.Replace(data, ServerIdentifier, "", 1)
+	newData := strings.Replace(data, BotIdentifier, "", 1)
 	return newData
 }
