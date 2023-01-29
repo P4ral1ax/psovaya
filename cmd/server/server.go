@@ -138,6 +138,10 @@ func cliList(cmdArgs []string) {
 	}
 }
 
+func watchdog(splitCmd []string) {
+
+}
+
 func cli() {
 	var help string = "COMMANDS: \n    help: Display Help\n    exec: Execute Command\n    target: Configure target\n    list: list clients\n    info: Obtain info from payload or server"
 	for {
@@ -200,6 +204,8 @@ func cli() {
 				fmt.Printf("%v : %v\n", cmdQueue[i].Target, cmdQueue[i].cmd)
 			}
 		case "":
+		case "watchdog":
+			watchdog(splitCmd)
 		default:
 			fmt.Printf("\x1b[31m[-] Unknown Command\x1b[0m\n")
 		}

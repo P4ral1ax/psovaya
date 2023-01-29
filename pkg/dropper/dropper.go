@@ -64,6 +64,7 @@ func ExecMemfd(fd int, procname string) {
 	_, err := syscall.Setsid()
 	if err != nil {
 		fmt.Println("SetSID Failed")
+		os.Exit(0)
 	}
 
 	id, _, _ = syscall.Syscall(syscall.SYS_FORK, 0, 0, 0)
