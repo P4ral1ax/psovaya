@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"psovaya/pkg/rawsocket"
+	"psovaya/pkg/watchdog"
 	"strconv"
 	"strings"
 	"time"
@@ -138,8 +139,11 @@ func cliList(cmdArgs []string) {
 	}
 }
 
-func watchdog(splitCmd []string) {
-
+func watchdogCmd(cmdArgs []string) {
+	if len(cmdArgs) <= 1 {
+		fmt.Printf("\x1b[31m[-] Please include arguement\x1b[0m\n")
+		watchdog.PrintHelp()
+	}
 }
 
 func cli() {
@@ -205,7 +209,7 @@ func cli() {
 			}
 		case "":
 		case "watchdog":
-			watchdog(splitCmd)
+			watchdogCmd(splitCmd)
 		default:
 			fmt.Printf("\x1b[31m[-] Unknown Command\x1b[0m\n")
 		}
