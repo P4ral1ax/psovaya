@@ -99,7 +99,7 @@ func main() {
 	fmt.Println("[+] Socket created")
 
 	// Get information that is needed for networking
-	iface, src := rawsocket.GetOutwardIface("192.168.1.202:8000")
+	iface, src := rawsocket.GetOutwardIface("192.168.15.75:8000")
 
 	dstMAC, err := rawsocket.GetRouterMAC()
 	if err != nil {
@@ -108,7 +108,7 @@ func main() {
 	fmt.Println("[+] DST MAC:", dstMAC.String())
 	fmt.Println("[+] Listening")
 
-	go generateHeartbeat(iface, src, net.IPv4(192, 168, 1, 202), dstMAC)
+	go generateHeartbeat(iface, src, net.IPv4(192, 168, 15, 75), dstMAC)
 
 	for {
 		packet := rawsocket.ReadPacket(readfd, vm, false)
